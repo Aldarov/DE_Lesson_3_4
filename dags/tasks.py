@@ -94,15 +94,7 @@ def branch_check_file():
 def task_to_fail():
     raise AirflowFailException("Входной файл пуст или его не существует")
 
-# pg_host = "host.docker.internal"
-# pg_host = "localhost"
-# pg_port = "5432"
-# pg_user = "postgres"
-# pg_password = "postgres"
-# pg_database = "Test"
-
 def create_db():
-    # conn = psycopg2.connect(host=pg_host, port=pg_port, user=pg_user, password=pg_password, database=pg_database)
     connection = BaseHook.get_connection("postgres_conn")
     conn = psycopg2.connect(host=connection.host, port=connection.port, user=connection.login, password=connection.password, database=connection.schema)
     cursor = conn.cursor()
@@ -120,7 +112,6 @@ def create_db():
     conn.close()
 
 def add_result_to_db():
-    # conn = psycopg2.connect(host=pg_host, port=pg_port, user=pg_user, password=pg_password, database=pg_database)
     connection = BaseHook.get_connection("postgres_conn")
     conn = psycopg2.connect(host=connection.host, port=connection.port, user=connection.login, password=connection.password, database=connection.schema)
     cursor = conn.cursor()
@@ -144,7 +135,7 @@ def add_result_to_db():
     conn.close()
 
 
-with DAG(dag_id="first_dag", start_date=datetime(2022, 12, 11), schedule="* * * * *", catchup=False, max_active_runs=5) as dag:
+with DAG(dag_id="first_dag", start_date=datetime(2022, 12, 11), schedule="* * * * *", catchup=False, max_active_runs=1) as dag:
     hello_task = BashOperator(task_id="hello", bash_command="echo hello")
     python_task1 = PythonOperator(task_id="task1", python_callable = hello)
     add_numbers_to_file = PythonOperator(task_id="add_numbers_to_file", python_callable = add_numbers_to_file)
@@ -153,6 +144,6 @@ with DAG(dag_id="first_dag", start_date=datetime(2022, 12, 11), schedule="* * * 
     branch_check_file = BranchPythonOperator(task_id='branch_check_file', python_callable=branch_check_file)
     task_to_fail = PythonOperator(task_id="task_to_fail", python_callable = task_to_fail)
     create_db = PythonOperator(task_id="create_db", python_callable = create_db)
-    add_result_to_db = PythonOperator(task_id="add_result_to_db", python_callable = add_result_to_db)
+    add_result_to_db = PythonOperator(task_id="add_result_to_db", python_callable = add_result_to_db, trigger_rule='none_failed_or_skipped')
 
     hello_task >> python_task1 >> add_numbers_to_file >> result_calculation >> check_file >> branch_check_file >> [create_db, task_to_fail] >> add_result_to_db
