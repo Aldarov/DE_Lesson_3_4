@@ -144,7 +144,7 @@ def add_result_to_db():
     conn.close()
 
 
-with DAG(dag_id="first_dag", start_date=datetime(2022, 12, 11), schedule="20-25 16 * * *") as dag:
+with DAG(dag_id="first_dag", start_date=datetime(2022, 12, 11), schedule="* * * * *", catchup=False, max_active_runs=5) as dag:
     hello_task = BashOperator(task_id="hello", bash_command="echo hello")
     python_task1 = PythonOperator(task_id="task1", python_callable = hello)
     add_numbers_to_file = PythonOperator(task_id="add_numbers_to_file", python_callable = add_numbers_to_file)
