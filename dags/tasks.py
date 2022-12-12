@@ -116,7 +116,7 @@ def add_result_to_db():
     conn = psycopg2.connect(host=connection.host, port=connection.port, user=connection.login, password=connection.password, database=connection.schema)
     cursor = conn.cursor()
     cursor.execute("delete from data")
-    cursor.execute("alter table data ADD COLUMN coef integer;")
+    cursor.execute("alter table data ADD COLUMN IF NOT EXISTS coef integer;")
     sum_col_1 = 0
     sum_col_2 = 0
     with open(path_to_file) as file:
@@ -135,15 +135,15 @@ def add_result_to_db():
     conn.close()
 
 
-with DAG(dag_id="first_dag", start_date=datetime(2022, 12, 11), schedule="* * * * *", catchup=False, max_active_runs=1) as dag:
+with DAG(dag_id="first_dag", start_date=datetime(2022, 12, 11), schedule="* * * * *", catchup=False, max_active_runs=5) as dag:
     hello_task = BashOperator(task_id="hello", bash_command="echo hello")
     python_task1 = PythonOperator(task_id="task1", python_callable = hello)
-    add_numbers_to_file = PythonOperator(task_id="add_numbers_to_file", python_callable = add_numbers_to_file)
-    result_calculation = PythonOperator(task_id="result_calculation", python_callable = result_calculation)
+    add_numbers_to_file = PythonOperator(task_id="add_numbers_to_file", python_callable = add_numbers_to_file, depends_on_past=True)
+    result_calculation = PythonOperator(task_id="result_calculation", python_callable = result_calculation, depends_on_past=True)
     check_file = PythonSensor(task_id="check_file", python_callable=check_file)
     branch_check_file = BranchPythonOperator(task_id='branch_check_file', python_callable=branch_check_file)
     task_to_fail = PythonOperator(task_id="task_to_fail", python_callable = task_to_fail)
-    create_db = PythonOperator(task_id="create_db", python_callable = create_db)
-    add_result_to_db = PythonOperator(task_id="add_result_to_db", python_callable = add_result_to_db, trigger_rule='none_failed_or_skipped')
+    create_db = PythonOperator(task_id="create_db", python_callable = create_db, depends_on_past=True)
+    add_result_to_db = PythonOperator(task_id="add_result_to_db", python_callable = add_result_to_db, trigger_rule='none_failed_or_skipped', depends_on_past=True)
 
     hello_task >> python_task1 >> add_numbers_to_file >> result_calculation >> check_file >> branch_check_file >> [create_db, task_to_fail] >> add_result_to_db
