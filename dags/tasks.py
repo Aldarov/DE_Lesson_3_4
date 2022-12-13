@@ -7,9 +7,9 @@ from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 from airflow.sensors.python import PythonSensor
 from airflow.operators.python import BranchPythonOperator
-from airflow.operators.dummy import DummyOperator
 from airflow.exceptions import AirflowFailException
 from airflow.hooks.base_hook import BaseHook
+from airflow.models import Variable
 
 
 path_to_file = os.path.join(os.path.dirname(__file__), 'res.txt')
@@ -94,8 +94,13 @@ def branch_check_file():
 def task_to_fail():
     raise AirflowFailException("Входной файл пуст или его не существует")
 
+def get_connection():
+    conn_name = Variable.get("conn_name")
+    print("conn_name: " + conn_name)
+    return BaseHook.get_connection(conn_name)
+
 def create_db():
-    connection = BaseHook.get_connection("postgres_conn")
+    connection = get_connection()
     conn = psycopg2.connect(host=connection.host, port=connection.port, user=connection.login, password=connection.password, database=connection.schema)
     cursor = conn.cursor()
     cursor.execute("create table if not exists data(value_1 integer NOT NULL, value_2 integer NOT NULL)")
@@ -112,7 +117,7 @@ def create_db():
     conn.close()
 
 def add_result_to_db():
-    connection = BaseHook.get_connection("postgres_conn")
+    connection = get_connection()
     conn = psycopg2.connect(host=connection.host, port=connection.port, user=connection.login, password=connection.password, database=connection.schema)
     cursor = conn.cursor()
     cursor.execute("delete from data")
@@ -135,7 +140,7 @@ def add_result_to_db():
     conn.close()
 
 
-with DAG(dag_id="first_dag", start_date=datetime(2022, 12, 11), schedule="* * * * *", catchup=False, max_active_runs=5) as dag:
+with DAG(dag_id="first_dag", start_date=datetime(2022, 12, 11), schedule="0-5 3 * * *", catchup=False, max_active_runs=1) as dag:
     hello_task = BashOperator(task_id="hello", bash_command="echo hello")
     python_task1 = PythonOperator(task_id="task1", python_callable = hello)
     add_numbers_to_file = PythonOperator(task_id="add_numbers_to_file", python_callable = add_numbers_to_file, depends_on_past=True)
